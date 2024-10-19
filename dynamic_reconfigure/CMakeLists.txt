@@ -9,13 +9,14 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rcl_interfaces REQUIRED)
+find_package(std_msgs REQUIRED)
 
 include_directories(
   include/dynamic_reconfigure
 )
 
 add_library(service_wrapper src/dependencies/service_wrapper.cpp)
-ament_target_dependencies(service_wrapper rclcpp rcl_interfaces)
+ament_target_dependencies(service_wrapper rclcpp rcl_interfaces std_msgs)
 
 add_executable(service_wrapper_test tests/service_wrapper_test.cpp)
 ament_target_dependencies(service_wrapper_test rclcpp rcl_interfaces)
