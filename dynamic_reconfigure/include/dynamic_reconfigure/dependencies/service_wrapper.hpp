@@ -12,6 +12,7 @@
 #include <iostream>
 #include <vector>
 #include <map>
+#include <mutex>
 
 #include <rclcpp/rclcpp.hpp>
 #include <rcl_interfaces/srv/set_parameters.hpp>
@@ -26,6 +27,14 @@ namespace reconfigure_depends
         SUCCESS = 0,
     };
 
+
+    enum ServiceWrapperState {
+        READY = 0,
+        ERROR,
+        BUSY, 
+        COMPLETE
+    };
+
     class ServiceWrapper
     {
     private:
@@ -38,7 +47,6 @@ namespace reconfigure_depends
         void update_parameter_types_cb(const rclcpp::Client<rcl_interfaces::srv::DescribeParameters>::SharedFuture future);
         
     protected:
-        bool is_ready = false;
         /// @brief holds the information of the last accessed node
         std::string prev_accessed_node;
         
@@ -46,7 +54,7 @@ namespace reconfigure_depends
         std::vector<std::string> parameters;
         
         /// @brief holds the map for type of parameter for the given parameter
-        std::map<std::string, std::string> parameter_type;
+        std::map<std::string, int> parameter_type;
         
         /// @brief updates the parameters of the particular node
         void update_parameters();
@@ -71,6 +79,12 @@ namespace reconfigure_depends
         
         /// @brief shared pointer to client that can describe parameters
         rclcpp::Client<rcl_interfaces::srv::DescribeParameters>::SharedPtr describe_parameters_client_;
+
+        /// @brief boolean to check if the list updated or not
+        ServiceWrapperState is_list_updated = BUSY;
+
+        /// @brief mutex to handle the list parameters callback
+        std::mutex list_mutex;
         
     public:
         /// @brief Constructor for the class
@@ -79,7 +93,7 @@ namespace reconfigure_depends
         /// @brief Returns a vector of available parameters for the given node
         /// @param name
         /// @return std::vector<std::string>&
-        std::vector<std::string>& list_parameters(std::string &node_name);
+        ServiceWrapperReturnCodes list_parameters(std::string &node_name);
         
         /// @brief This function sets the value of the given parameter
         /// @param name
@@ -92,6 +106,14 @@ namespace reconfigure_depends
         /// @return rclcpp::ParameterValue
         rclcpp::ParameterValue get_param(const std::string &name);
         
+        /// @brief this function returns the state of the list update service callback
+        /// @return ServiceWrapperState
+        ServiceWrapperState get_list_status();
+
+        /// @brief this function returns the parameters that were received on listing the parameters 
+        /// @return 
+        std::vector<std::string> get_parameters();
+
         /// @brief Destructor for the class
         ~ServiceWrapper() {}
     };

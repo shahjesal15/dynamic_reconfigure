@@ -18,17 +18,24 @@ void reconfigure_depends::ServiceWrapper::create_client(const std::string &node_
 void reconfigure_depends::ServiceWrapper::update_parameters_cb(
     const rclcpp::Client<rcl_interfaces::srv::ListParameters>::SharedFuture future)
 {
+    list_mutex.lock();
+       
     auto result = future.get();
     if (!result)
     {
         RCLCPP_ERROR(node_->get_logger(), "Failed to retrieve list of parameters.");
+        is_list_updated = ServiceWrapperState::ERROR;
         return;
     }
     for (auto &name : result->result.names)
     {
         parameters.push_back(name);
+        RCLCPP_DEBUG_STREAM(node_->get_logger(), " [@] Parameter : " << name);
     }
-    is_ready = true;
+    
+    list_mutex.unlock();
+
+    update_parameter_types();
 }
 
 void reconfigure_depends::ServiceWrapper::update_parameters()
@@ -42,80 +49,82 @@ void reconfigure_depends::ServiceWrapper::update_parameters()
 
 void reconfigure_depends::ServiceWrapper::update_parameter_types()
 {
-    for(auto& parameter : parameters) {
-        RCLCPP_INFO_STREAM(node_->get_logger(), " ? " << parameter);
-    }
+    list_mutex.lock();
+
     auto type_request = std::make_shared<rcl_interfaces::srv::DescribeParameters::Request>();
-    type_request->names = std::vector<std::string>{};
-    for(auto& parameter : parameters)
-        type_request->names.push_back(parameter);//{"test"};
+    for(std::string& parameter : parameters)
+        type_request->names.push_back(parameter);
 
     auto list_future = describe_parameters_client_->async_send_request(type_request,
                                                                        std::bind(&reconfigure_depends::ServiceWrapper::update_parameter_types_cb, this, std::placeholders::_1));
+
+
+    list_mutex.unlock();
 }
 
 void reconfigure_depends::ServiceWrapper::update_parameter_types_cb(
     const rclcpp::Client<rcl_interfaces::srv::DescribeParameters>::SharedFuture future)
 {
-
     auto result = future.get();
     if (!result)
     {
         RCLCPP_ERROR(node_->get_logger(), "Failed to retrieve list of parameters.");
+        is_list_updated = ServiceWrapperState::ERROR;
         return;
     }
     for (auto &descriptor : result->descriptors)
     {
-        std::string type_str;
-        switch (descriptor.type)
-        {
-        case rcl_interfaces::msg::ParameterType::PARAMETER_BOOL:
-            type_str = "bool";
-            break;
-        case rcl_interfaces::msg::ParameterType::PARAMETER_INTEGER:
-            type_str = "integer";
-            break;
-        case rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE:
-            type_str = "double";
-            break;
-        case rcl_interfaces::msg::ParameterType::PARAMETER_STRING:
-            type_str = "string";
-            break;
-        case rcl_interfaces::msg::ParameterType::PARAMETER_BYTE_ARRAY:
-            type_str = "byte array";
-            break;
-        case rcl_interfaces::msg::ParameterType::PARAMETER_BOOL_ARRAY:
-            type_str = "bool array";
-            break;
-        case rcl_interfaces::msg::ParameterType::PARAMETER_INTEGER_ARRAY:
-            type_str = "integer array";
-            break;
-        case rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE_ARRAY:
-            type_str = "double array";
-            break;
-        case rcl_interfaces::msg::ParameterType::PARAMETER_STRING_ARRAY:
-            type_str = "string array";
-            break;
-        default:
-            type_str = "unknown";
-        }
-        parameter_type[descriptor.name] = type_str;
-        RCLCPP_INFO_STREAM(node_->get_logger(), " > name : " << descriptor.name << ", type : " << type_str);
+        parameter_type[descriptor.name] = descriptor.type;
+        RCLCPP_DEBUG_STREAM(node_->get_logger(), 
+            " [@] Parameter : " << descriptor.name << ", type : " << parameter_type[descriptor.name]);
     }
+    is_list_updated = ServiceWrapperState::READY;
 }
 
-std::vector<std::string> &reconfigure_depends::ServiceWrapper::list_parameters(std::string &node_name)
+reconfigure_depends::ServiceWrapperReturnCodes reconfigure_depends::ServiceWrapper::list_parameters(
+    std::string &node_name)
 {
     if (prev_accessed_node != node_name)
     {
+        list_mutex.lock();
+
+        RCLCPP_DEBUG_STREAM(node_->get_logger(), " [+] Getting parameters for " << node_name);
+
+        is_list_updated = ServiceWrapperState::BUSY;
+
+        parameters.clear();
         create_client(node_name);
         update_parameters();
-        while(parameters.size() == 0);
-        update_parameter_types();
         prev_accessed_node = node_name;
+
+
+        list_mutex.unlock();
     }
+    return ServiceWrapperReturnCodes::SUCCESS;
+}
+
+reconfigure_depends::ServiceWrapperState reconfigure_depends::ServiceWrapper::get_list_status() {
+    std::lock_guard<std::mutex> lock(list_mutex);
+
+    if(is_list_updated == ServiceWrapperState::READY) {
+        is_list_updated = ServiceWrapperState::COMPLETE;
+        return ServiceWrapperState::READY;
+    }
+
+    return is_list_updated;
+}
+
+std::vector<std::string> reconfigure_depends::ServiceWrapper::get_parameters() {
+    std::vector<std::string> parameters_;
+    
+    list_mutex.lock();
+    if(is_list_updated == ServiceWrapperState::COMPLETE)
+        parameters_ = parameters;
+    list_mutex.unlock();
+    
     return parameters;
 }
+
 
 reconfigure_depends::ServiceWrapperReturnCodes reconfigure_depends::ServiceWrapper::set_param(const std::string &name, const rclcpp::ParameterValue &value)
 {
