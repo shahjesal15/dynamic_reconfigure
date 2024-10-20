@@ -138,11 +138,14 @@ void reconfigure_depends::ServiceWrapper::set_param_cb(const rclcpp::Client<rcl_
 
 reconfigure_depends::ServiceWrapperReturnCodes reconfigure_depends::ServiceWrapper::set_param(const std::string &name, const rclcpp::ParameterValue &value)
 {
+
     if(!(is_param_set.load() == ServiceWrapperState::COMPLETE || is_param_set.load() == ServiceWrapperState::START))
         return ServiceWrapperReturnCodes::OCCUPIED;
 
     if(!(is_list_updated.load() == ServiceWrapperState::READY || is_list_updated.load() == ServiceWrapperState::COMPLETE))
         return ServiceWrapperReturnCodes::IN_PROCESS;
+
+    std::lock_guard set_lock(client_mutex);
 
     parameters_mutex.lock();
     if(std::find(parameters.begin(), parameters.end(), name) == parameters.end()) {
