@@ -12,6 +12,7 @@
 #include <iostream>
 #include <vector>
 #include <map>
+#include <atomic>
 #include <mutex>
 
 #include <rclcpp/rclcpp.hpp>
@@ -27,13 +28,15 @@ namespace reconfigure_depends
         SUCCESS = 0,
     };
 
-
     enum ServiceWrapperState {
+        START = -1,
         READY = 0,
         ERROR,
         BUSY, 
         COMPLETE
     };
+
+    using AtomicServiceWrapperState = std::atomic<ServiceWrapperState>;
 
     class ServiceWrapper
     {
@@ -81,10 +84,16 @@ namespace reconfigure_depends
         rclcpp::Client<rcl_interfaces::srv::DescribeParameters>::SharedPtr describe_parameters_client_;
 
         /// @brief boolean to check if the list updated or not
-        ServiceWrapperState is_list_updated = BUSY;
+        AtomicServiceWrapperState is_list_updated;
 
-        /// @brief mutex to handle the list parameters callback
-        std::mutex list_mutex;
+        /// @brief mutex for service clients
+        std::mutex client_mutex;
+
+        /// @brief mutex for parameters read from the list parameters callback
+        std::mutex parameters_mutex;
+        
+        /// @brief mutex for parameters types read from the describe parameters callback
+        std::mutex parameter_types_mutex;
         
     public:
         /// @brief Constructor for the class
