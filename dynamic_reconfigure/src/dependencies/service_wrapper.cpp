@@ -5,14 +5,15 @@ reconfigure_depends::ServiceWrapper::ServiceWrapper(rclcpp::Node::SharedPtr node
     prev_accessed_node = "";
     parameters.clear();
     parameter_type.clear();
-    is_list_updated.store(reconfigure_depends::ServiceWrapperState::START);
+    is_list_updated.store(ServiceWrapperState::START);
+    is_param_set.store(ServiceWrapperState::START);
 }
 
 void reconfigure_depends::ServiceWrapper::create_client(const std::string &node_name)
 {
     std::lock_guard client_lock(client_mutex);
 
-    set_parameters_client_ = node_->create_client<rcl_interfaces::srv::SetParameters>("/" + node_name + "/set_parameters");
+    set_parameters_client_ = node_->create_client<rcl_interfaces::srv::SetParametersAtomically>("/" + node_name + "/set_parameters_atomically");
     get_parameters_client_ = node_->create_client<rcl_interfaces::srv::GetParameters>("/" + node_name + "/get_parameters");
     list_parameters_client_ = node_->create_client<rcl_interfaces::srv::ListParameters>("/" + node_name + "/list_parameters");
     describe_parameters_client_ = node_->create_client<rcl_interfaces::srv::DescribeParameters>("/" + node_name + "/describe_parameters");
@@ -111,7 +112,6 @@ reconfigure_depends::ServiceWrapperState reconfigure_depends::ServiceWrapper::ge
         is_list_updated.store(ServiceWrapperState::COMPLETE);
         return ServiceWrapperState::READY;
     }
-
     return is_list_updated.load();
 }
 
@@ -120,9 +120,53 @@ std::vector<std::string> reconfigure_depends::ServiceWrapper::get_parameters() {
     return parameters;
 }
 
+void reconfigure_depends::ServiceWrapper::set_param_cb(const rclcpp::Client<rcl_interfaces::srv::SetParametersAtomically>::SharedFuture future) {
+    auto result = future.get();
+    if(!result) {
+        is_param_set.store(ServiceWrapperState::ERROR);
+        RCLCPP_WARN(node_->get_logger(), " [-] parameter set failure, with unknown error");
+        return;
+    }
+    if(result->result.successful == true) {
+        is_param_set.store(ServiceWrapperState::COMPLETE);
+        RCLCPP_DEBUG(node_->get_logger(), " [+] parameter set successfully.");
+    } else {
+        is_param_set.store(ServiceWrapperState::ERROR);
+        RCLCPP_WARN_STREAM(node_->get_logger(), " [-] parameter set failure : " << result->result.reason);
+    }
+}
 
 reconfigure_depends::ServiceWrapperReturnCodes reconfigure_depends::ServiceWrapper::set_param(const std::string &name, const rclcpp::ParameterValue &value)
 {
+    if(!(is_param_set.load() == ServiceWrapperState::COMPLETE || is_param_set.load() == ServiceWrapperState::START))
+        return ServiceWrapperReturnCodes::OCCUPIED;
+
+    if(!(is_list_updated.load() == ServiceWrapperState::READY || is_list_updated.load() == ServiceWrapperState::COMPLETE))
+        return ServiceWrapperReturnCodes::IN_PROCESS;
+
+    parameters_mutex.lock();
+    if(std::find(parameters.begin(), parameters.end(), name) == parameters.end()) {
+        RCLCPP_WARN_STREAM(node_->get_logger(), " [!] Trying to set no-existent parameter " << name);
+        parameters_mutex.unlock();
+        return ServiceWrapperReturnCodes::NOT_FOUND;
+    } else {
+        RCLCPP_DEBUG_STREAM(node_->get_logger(), " [@] Parameter found and trying to set : " << name);
+    }
+    parameters_mutex.unlock();
+
+    rclcpp::Parameter to_set_parameter(name, value);
+
+    auto set_param_request = std::make_shared<rcl_interfaces::srv::SetParametersAtomically::Request>();
+    set_param_request->parameters.push_back(to_set_parameter.to_parameter_msg());
+
+    is_param_set.store(ServiceWrapperState::BUSY);
+
+    auto set_param_future = set_parameters_client_->async_send_request(
+        set_param_request,
+        std::bind(&reconfigure_depends::ServiceWrapper::set_param_cb, this, std::placeholders::_1)
+    ); 
+
+    return ServiceWrapperReturnCodes::SUCCESS;
 }
 
 rclcpp::ParameterValue reconfigure_depends::ServiceWrapper::get_param(const std::string &name)

@@ -14,6 +14,7 @@
 #include <map>
 #include <atomic>
 #include <mutex>
+#include <algorithm>
 
 #include <rclcpp/rclcpp.hpp>
 #include <rcl_interfaces/srv/set_parameters.hpp>
@@ -26,6 +27,9 @@ namespace reconfigure_depends
     enum ServiceWrapperReturnCodes {
         FAILURE = -1,
         SUCCESS = 0,
+        NOT_FOUND,
+        IN_PROCESS,
+        OCCUPIED
     };
 
     enum ServiceWrapperState {
@@ -48,6 +52,10 @@ namespace reconfigure_depends
         /// @brief this function is the callback for the describe_parameters service call
         /// @param future 
         void update_parameter_types_cb(const rclcpp::Client<rcl_interfaces::srv::DescribeParameters>::SharedFuture future);
+
+        /// @brief this function is the callback for the set_parameters_atomically service call
+        /// @param future 
+        void set_param_cb(const rclcpp::Client<rcl_interfaces::srv::SetParametersAtomically>::SharedFuture future);
         
     protected:
         /// @brief holds the information of the last accessed node
@@ -72,7 +80,7 @@ namespace reconfigure_depends
         rclcpp::Node::SharedPtr node_;
         
         /// @brief shared pointer to client that can set parameters
-        rclcpp::Client<rcl_interfaces::srv::SetParameters>::SharedPtr set_parameters_client_;
+        rclcpp::Client<rcl_interfaces::srv::SetParametersAtomically>::SharedPtr set_parameters_client_;
         
         /// @brief shared pointer to client that can get parameters
         rclcpp::Client<rcl_interfaces::srv::GetParameters>::SharedPtr get_parameters_client_;
@@ -83,8 +91,11 @@ namespace reconfigure_depends
         /// @brief shared pointer to client that can describe parameters
         rclcpp::Client<rcl_interfaces::srv::DescribeParameters>::SharedPtr describe_parameters_client_;
 
-        /// @brief boolean to check if the list updated or not
+        /// @brief state to check if the list updated or not
         AtomicServiceWrapperState is_list_updated;
+
+        /// @brief state to check if the parameter is set or not
+        AtomicServiceWrapperState is_param_set;
 
         /// @brief mutex for service clients
         std::mutex client_mutex;
@@ -94,7 +105,7 @@ namespace reconfigure_depends
         
         /// @brief mutex for parameters types read from the describe parameters callback
         std::mutex parameter_types_mutex;
-        
+
     public:
         /// @brief Constructor for the class
         ServiceWrapper(rclcpp::Node::SharedPtr node);
