@@ -58,7 +58,7 @@ namespace dynamic_reconfigure_core
         /// @brief sets the parameters for the selected node
         /// @param params
         /// @return ServiceWrapperReturnCodes
-        ServiceWrapperReturnCodes set_params(const std::vector<rclcpp::Parameter> &params);
+        ServiceWrapperReturnCodes set_params(const std::vector<rclcpp::Parameter> &parameters);
 
         /// @brief get the parameters for the selected node
         /// @param param_names
@@ -72,6 +72,10 @@ namespace dynamic_reconfigure_core
         /// @brief get the status of the request params co-routine
         /// @return ServiceWrapperStates
         ServiceWrapperStates get_request_status();
+
+        /// @brief get the status of set params co-routine
+        /// @return ServiceWrapperStates
+        ServiceWrapperStates get_set_status();
 
         /// @brief get params list request before
         /// @return std::vector<std::string>
@@ -96,6 +100,9 @@ namespace dynamic_reconfigure_core
 
         /// @brief request params status state variable
         AtomicServiceWrapperState request_params_status;
+        
+        /// @brief set params status state variable
+        AtomicServiceWrapperState set_params_status;
 
         /// @brief mutex to handle clients related resource sharing
         std::mutex client_mutex;

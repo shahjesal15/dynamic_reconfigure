@@ -6,6 +6,7 @@ namespace dynamic_reconfigure_core
     {
         list_params_status.store(ServiceWrapperStates::IDLE);
         request_params_status.store(ServiceWrapperStates::IDLE);
+        set_params_status.store(ServiceWrapperStates::IDLE);
         params.clear();
         parameter_types.clear();
     }
@@ -78,8 +79,42 @@ namespace dynamic_reconfigure_core
         return ServiceWrapperReturnCodes::SUCCESS;
     }
 
-    ServiceWrapperReturnCodes ServiceWrapper::set_params(const std::vector<rclcpp::Parameter> &params)
+    ServiceWrapperReturnCodes ServiceWrapper::set_params(const std::vector<rclcpp::Parameter> &parameters)
     {
+        if (set_params_status.load() != ServiceWrapperStates::IDLE)
+            return ServiceWrapperReturnCodes::BUSY;
+
+        params_mutex.lock();
+
+        auto set_param_request = std::make_shared<rcl_interfaces::srv::SetParametersAtomically::Request>();
+
+        for (auto &param : parameters)
+        {
+            if (std::find(params.begin(), params.end(), param.get_name()) == params.end())
+            {
+                RCLCPP_WARN_STREAM(node_->get_logger(), "Trying to set no-existent parameter" << param.get_name());
+                continue;
+            }
+            else
+            {
+                RCLCPP_DEBUG_STREAM(node_->get_logger(), fmt::format(
+                                                             fg(fmt::color::blue), "Parameter found and trying to set : {} ", param.get_name()));
+            }
+
+            set_param_request->parameters.push_back(param.to_parameter_msg());
+        }
+
+        params_mutex.unlock();
+
+        std::lock_guard set_lock(client_mutex);
+
+        set_params_status.store(ServiceWrapperStates::PROCESSING);
+
+        auto set_param_future = set_params_client_->async_send_request(
+            set_param_request,
+            std::bind(&ServiceWrapper::set_params_cb, this, std::placeholders::_1));
+
+        return ServiceWrapperReturnCodes::SUCCESS;
     }
 
     void ServiceWrapper::list_parameter_types()
@@ -125,6 +160,14 @@ namespace dynamic_reconfigure_core
     ServiceWrapperStates ServiceWrapper::get_request_status()
     {
         return request_params_status.load();
+    }
+
+    ServiceWrapperStates ServiceWrapper::get_set_status() {
+        if(set_params_status.load() == ServiceWrapperStates::COMPLETE) {
+            set_params_status.store(ServiceWrapperStates::IDLE);
+            return ServiceWrapperStates::COMPLETE;
+        }
+        return set_params_status.load();
     }
 
     void ServiceWrapper::create_client(const std::string node_name)
@@ -207,8 +250,7 @@ namespace dynamic_reconfigure_core
         if (!result)
         {
             request_params_status.store(ServiceWrapperStates::ERROR);
-            RCLCPP_WARN_STREAM(node_->get_logger(), fmt::format(
-                                                        fg(fmt::color::yellow), "parameter get failure, with unknown error"));
+            RCLCPP_WARN_STREAM(node_->get_logger(),"parameter get failure, with unknown error");
             return;
         }
 
@@ -217,8 +259,7 @@ namespace dynamic_reconfigure_core
         if (result->values.size() != requested_params.size())
         {
             request_params_status.store(ServiceWrapperStates::ERROR);
-            RCLCPP_WARN_STREAM(node_->get_logger(), fmt::format(
-                                                        fg(fmt::color::yellow), "parameter get failure, didn't receive the number of requested parameters"));
+            RCLCPP_WARN_STREAM(node_->get_logger(), "parameter get failure, didn't receive the number of requested parameters");
             return;
         }
 
@@ -238,5 +279,26 @@ namespace dynamic_reconfigure_core
         }
 
         request_params_status.store(ServiceWrapperStates::COMPLETE);
+    }
+
+    void ServiceWrapper::set_params_cb(const rclcpp::Client<rcl_interfaces::srv::SetParametersAtomically>::SharedFuture future)
+    {
+        auto result = future.get();
+        if (!result)
+        {
+            set_params_status.store(ServiceWrapperStates::ERROR);
+            RCLCPP_WARN(node_->get_logger(), "parameter set failure, with unknown error");
+            return;
+        }
+        if (result->result.successful == true)
+        {
+            set_params_status.store(ServiceWrapperStates::COMPLETE);
+            RCLCPP_DEBUG_STREAM(node_->get_logger(), fmt::format(fg(fmt::color::blue), "parameter set successfully."));
+        }
+        else
+        {
+            set_params_status.store(ServiceWrapperStates::ERROR);
+            RCLCPP_WARN_STREAM(node_->get_logger(), "parameter set failure : " << result->result.reason);
+        }
     }
 };
