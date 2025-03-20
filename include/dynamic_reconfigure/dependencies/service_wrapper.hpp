@@ -88,6 +88,7 @@ namespace dynamic_reconfigure_core
         /// @brief clears all the error states
         void clear_errors();
 
+        // TODO: write definition for this function.
         /// @brief reset all the states
         void reset_states();
 

@@ -1,0 +1,9 @@
+<library path="dynamic_reconfigure">
+    <class name="dynamic_reconfigure/RvizDynamicReconfigure"
+           type="dynamic_reconfigure::RvizDynamicReconfigure"
+           base_class_type="rviz_common::Panel">
+      <description>
+        A plugin that adds functionality to dynamically reconfigure parameters in RViz2.
+      </description>
+    </class>
+  </library>
