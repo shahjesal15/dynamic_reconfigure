@@ -5,7 +5,8 @@ namespace dynamic_reconfigure
     RvizDynamicReconfigure::RvizDynamicReconfigure(QWidget *parent)
         : rviz_common::Panel(parent)
     {
-        setWindowTitle("Dynamic Reconfigure");
+        node_name = "Dynamic Reconfigure";
+        setWindowTitle(node_name);
         this->init_ui();
         this->setup_menu();
         this->setup_widgets();
@@ -17,15 +18,117 @@ namespace dynamic_reconfigure
         service_wrapper = std::make_unique<dynamic_reconfigure_core::ServiceWrapper>(
             node_->shared_from_this());
         logger = new Logger(log_box);
+
+        rate = std::make_shared<rclcpp::Rate>(100);
+        executor_thread = std::thread(&RvizDynamicReconfigure::update, this);
+        executor_thread.detach();
+
+        load_configurations();
     }
 
-    void RvizDynamicReconfigure::handle_btns() {
-        QObject *sender = QObject::sender();
-        if (sender == set_btn) {
-            logger->debug("set btn clicked");
+    void RvizDynamicReconfigure::list_nodes()
+    {
+        // Get the node graph interface
+        auto node_graph = node_->get_node_graph_interface();
+
+        // Get all node names and namespaces
+        auto node_names = node_graph->get_node_names();
+
+        node_options->clear();
+
+        for (std::string node_name : node_names)
+        {
+            node_name = (node_name.size() > 0 && node_name[0] == '/') ? node_name.substr(1) : node_name;
+            QString item_name = QString::fromStdString(node_name);
+            node_options->addItem(item_name);
         }
     }
 
+    void RvizDynamicReconfigure::load_params()
+    {
+        std::string active_node = node_options->currentText().toStdString();
+
+        RCLCPP_INFO_STREAM(node_->get_logger(), active_node);
+
+        if (active_node != "" && service_wrapper->request_params_list(active_node) == dynamic_reconfigure_core::ServiceWrapperReturnCodes::SUCCESS)
+        {
+            logger->debug("requested params from " + active_node);
+        }
+        else
+        {
+            logger->debug("error occured while requesting params from " + active_node);
+        }
+    }
+
+    void RvizDynamicReconfigure::handle_options(int index)
+    {
+        QObject *sender = QObject::sender();
+
+        if (sender == node_options)
+        {
+            logger->debug(node_options->currentText().toStdString());
+        }
+        else if (sender == param_options)
+        {
+            logger->debug(param_options->currentText().toStdString());
+        }
+    }
+
+    void RvizDynamicReconfigure::handle_btns()
+    {
+        QObject *sender = QObject::sender();
+        if (sender == set_btn)
+        {
+        }
+        else if (sender == get_btn)
+        {
+        }
+    }
+
+    void RvizDynamicReconfigure::handle_shortcuts()
+    {
+        QObject *sender = QObject::sender();
+        QWidget *focused_widget = QApplication::focusWidget();
+
+        if (sender == search_shortcut)
+        {
+            if (focused_widget == node_options)
+            {
+                node_options->setEditable(true);
+                node_options->setInsertPolicy(QComboBox::NoInsert);
+                node_options->completer()->setCaseSensitivity(Qt::CaseInsensitive);
+                node_options->completer()->setFilterMode(Qt::MatchContains);
+            }
+            else if (focused_widget == param_options)
+            {
+                param_options->setEditable(true);
+                param_options->setInsertPolicy(QComboBox::NoInsert);
+                param_options->completer()->setCaseSensitivity(Qt::CaseInsensitive);
+                param_options->completer()->setFilterMode(Qt::MatchContains);
+            }
+        }
+    }
+
+    void RvizDynamicReconfigure::update()
+    {
+        while (rclcpp::ok())
+        {
+            rclcpp::spin_some(node_);
+
+            if (service_wrapper->get_list_status() == dynamic_reconfigure_core::ServiceWrapperStates::COMPLETE)
+            {
+                param_options->clear();
+                std::vector<std::string> params = service_wrapper->get_params_list();
+
+                for (std::string param : params)
+                {
+                    param_options->addItem(QString::fromStdString(param));
+                }
+                param_options->setCurrentIndex(0);
+            }
+            rate->sleep();
+        }
+    }
 
     void RvizDynamicReconfigure::setup_menu()
     {
@@ -45,24 +148,46 @@ namespace dynamic_reconfigure
 
     void RvizDynamicReconfigure::setup_widgets()
     {
-        node_options->setEditable(true);
-        node_options->setInsertPolicy(QComboBox::NoInsert);
-        node_options->completer()->setCaseSensitivity(Qt::CaseInsensitive);
-        node_options->completer()->setFilterMode(Qt::MatchContains);
-
         log_box->setReadOnly(true);
 
-        param_options->setEditable(true);
-        param_options->setInsertPolicy(QComboBox::NoInsert);
-        param_options->completer()->setCaseSensitivity(Qt::CaseInsensitive);
-        param_options->completer()->setFilterMode(Qt::MatchContains);
+        node_options->installEventFilter(this);
+        param_options->installEventFilter(this);
 
         QObject::connect(set_btn, &QPushButton::clicked, this, &RvizDynamicReconfigure::handle_btns);
         QObject::connect(get_btn, &QPushButton::clicked, this, &RvizDynamicReconfigure::handle_btns);
+        QAction::connect(refresh_action, &QAction::triggered, this, &RvizDynamicReconfigure::list_nodes);
+
+        QObject::connect(node_options, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &RvizDynamicReconfigure::handle_options);
+        QObject::connect(param_options, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &RvizDynamicReconfigure::handle_options);
+
+        QObject::connect(search_shortcut, &QShortcut::activated, this, &RvizDynamicReconfigure::handle_shortcuts);
+
+        // QObject::connect(app, &QApplication::focusChanged, &RvizDynamicReconfigure::focus_event_handler);
+    }
+
+    bool RvizDynamicReconfigure::eventFilter(QObject *obj, QEvent *event)
+    {
+        if (event->type() == QEvent::FocusOut)
+        {
+            if(obj == node_options) {
+                node_options->setEditable(false);
+            } else if(obj == param_options) {
+                param_options->setEditable(false);
+            }
+        }
+        return QObject::eventFilter(obj, event);
+    }
+
+    void RvizDynamicReconfigure::load_configurations()
+    {
+        list_nodes();
+        load_params();
     }
 
     void RvizDynamicReconfigure::init_ui()
     {
+        app = qobject_cast<QApplication *>(QApplication::instance());
+
         reconfiguration_layout = new QVBoxLayout();
         options_layout = new QHBoxLayout();
         edit_layout = new QHBoxLayout();
@@ -78,6 +203,8 @@ namespace dynamic_reconfigure
         get_btn = new QPushButton("Get");
 
         log_box = new QPlainTextEdit();
+
+        search_shortcut = new QShortcut(QKeySequence("Alt+S"), this);
 
         options_layout->addWidget(node_options, 4);
         options_layout->addWidget(param_options, 6);

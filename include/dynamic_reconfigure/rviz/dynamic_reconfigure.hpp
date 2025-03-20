@@ -11,6 +11,7 @@
 
 #include <rviz_common/panel.hpp>
 
+#include <QApplication>
 #include <QDialog>
 #include <QWidget>
 #include <QVBoxLayout>
@@ -23,12 +24,16 @@
 #include <QMenu>
 #include <QAction>
 #include <QCompleter>
+#include <QShortcut>
+#include <QKeySequence>
 
 #include <rviz/components/logger.hpp>
 #include <dependencies/service_wrapper.hpp>
 
 namespace dynamic_reconfigure
 {
+    using namespace std::chrono_literals;
+
     class RvizDynamicReconfigure : public rviz_common::Panel
     {
     public:
@@ -44,9 +49,8 @@ namespace dynamic_reconfigure
 
         /// @brief init UI for the RViz2 plugin
         void init_ui();
-    
+
     protected:
-    
         /// @brief setup menubar for the panel
         void setup_menu();
 
@@ -58,16 +62,41 @@ namespace dynamic_reconfigure
 
         /// @brief handle the button callbacks
         void handle_btns();
-    
-    private:   
+
+        /// @brief handle the option callbacks
+        /// @param index 
+        void handle_options(int index);
+
+        /// @brief handle shortcuts
+        void handle_shortcuts();
+
+        /// @brief list all the available nodes.
+        void list_nodes();
+
+        /// @brief list the the available params of the node.
+        void load_params();
+
+        /// @brief update function to handle requests and create responses.
+        void update();
+
+        /// @brief event filter 
+        /// @param obj 
+        /// @param event 
+        /// @return 
+        bool eventFilter(QObject *obj, QEvent *event) override;
+
+    private:
         /// @brief ros2 node shared parameter
         rclcpp::Node::SharedPtr node_;
 
         /// @brief service wrapper code object ptr
         std::unique_ptr<dynamic_reconfigure_core::ServiceWrapper> service_wrapper;
 
+        /// @brief store the node names here
+        std::vector<std::string> node_names;
+
         /// @brief combo boxes for node and param options
-        QComboBox *node_options, *param_options; 
+        QComboBox *node_options, *param_options;
 
         /// @brief vertical layouts
         QVBoxLayout *reconfiguration_layout;
@@ -86,8 +115,8 @@ namespace dynamic_reconfigure
 
         /// @brief menu bar for the params settings
         QMenuBar *menu_bar;
-       
-        /// @brief file menu for the menu bar 
+
+        /// @brief file menu for the menu bar
         QMenu *file_menu;
 
         /// @brief action for refreshing the available nodes
@@ -98,6 +127,20 @@ namespace dynamic_reconfigure
 
         /// @brief logger for displaying warnings, messages, etc.
         Logger *logger;
+
+        /// @brief rate of spin of the node
+        std::shared_ptr<rclcpp::Rate> rate;
+
+        /// @brief single threaded executor
+        std::thread executor_thread;
+
+        /// @brief node name
+        QString node_name;
+
+        /// @brief search shortcut
+        QShortcut *search_shortcut;
+
+        QApplication *app;
     };
 }
 
