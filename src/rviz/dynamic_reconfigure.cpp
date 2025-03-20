@@ -52,6 +52,7 @@ namespace dynamic_reconfigure
 
         if (active_node != "" && service_wrapper->request_params_list(active_node) == dynamic_reconfigure_core::ServiceWrapperReturnCodes::SUCCESS)
         {
+            param_options->setEnabled(false);
             logger->debug("requested params from " + active_node);
         }
         else
@@ -66,11 +67,10 @@ namespace dynamic_reconfigure
 
         if (sender == node_options)
         {
-            logger->debug(node_options->currentText().toStdString());
+            load_params();
         }
         else if (sender == param_options)
         {
-            logger->debug(param_options->currentText().toStdString());
         }
     }
 
@@ -124,7 +124,9 @@ namespace dynamic_reconfigure
                 {
                     param_options->addItem(QString::fromStdString(param));
                 }
+                param_options->setEnabled(true);
                 param_options->setCurrentIndex(0);
+                logger->debug("refreshed params.");
             }
             rate->sleep();
         }
@@ -161,17 +163,18 @@ namespace dynamic_reconfigure
         QObject::connect(param_options, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &RvizDynamicReconfigure::handle_options);
 
         QObject::connect(search_shortcut, &QShortcut::activated, this, &RvizDynamicReconfigure::handle_shortcuts);
-
-        // QObject::connect(app, &QApplication::focusChanged, &RvizDynamicReconfigure::focus_event_handler);
     }
 
     bool RvizDynamicReconfigure::eventFilter(QObject *obj, QEvent *event)
     {
         if (event->type() == QEvent::FocusOut)
         {
-            if(obj == node_options) {
+            if (obj == node_options)
+            {
                 node_options->setEditable(false);
-            } else if(obj == param_options) {
+            }
+            else if (obj == param_options)
+            {
                 param_options->setEditable(false);
             }
         }
@@ -186,8 +189,6 @@ namespace dynamic_reconfigure
 
     void RvizDynamicReconfigure::init_ui()
     {
-        app = qobject_cast<QApplication *>(QApplication::instance());
-
         reconfiguration_layout = new QVBoxLayout();
         options_layout = new QHBoxLayout();
         edit_layout = new QHBoxLayout();

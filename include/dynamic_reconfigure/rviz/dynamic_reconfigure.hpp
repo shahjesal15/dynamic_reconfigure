@@ -139,8 +139,6 @@ namespace dynamic_reconfigure
 
         /// @brief search shortcut
         QShortcut *search_shortcut;
-
-        QApplication *app;
     };
 }
 

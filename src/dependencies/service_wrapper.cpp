@@ -13,6 +13,9 @@ namespace dynamic_reconfigure_core
 
     ServiceWrapperReturnCodes ServiceWrapper::request_params_list(std::string node_name)
     {
+        if(list_params_status.load() == ServiceWrapperStates::ERROR)
+            list_params_status.store(ServiceWrapperStates::IDLE);
+        
         if (list_params_status.load() != ServiceWrapperStates::IDLE)
             return ServiceWrapperReturnCodes::BUSY;
 

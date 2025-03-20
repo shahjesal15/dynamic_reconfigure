@@ -38,6 +38,7 @@ namespace dynamic_reconfigure_core
         IDLE = 0,
         PROCESSING,
         COMPLETE,
+        TIMEOUT,
         ERROR
     };
 
