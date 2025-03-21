@@ -27,6 +27,8 @@
 #include <QShortcut>
 #include <QKeySequence>
 #include <QCloseEvent>
+#include <QIntValidator>
+#include <QDoubleValidator>
 
 #include <rviz/components/logger.hpp>
 #include <dependencies/service_wrapper.hpp>
@@ -76,6 +78,9 @@ namespace dynamic_reconfigure
 
         /// @brief list the the available params of the node.
         void load_params();
+
+        /// @brief load the validator for the line input.
+        void load_validator();
 
         /// @brief update function to handle requests and create responses.
         void update();
@@ -148,6 +153,9 @@ namespace dynamic_reconfigure
 
         /// @brief search shortcut
         QShortcut *search_shortcut;
+
+        /// @brief parameter types map
+        std::map<std::string, int> param_types;
     };
 }
 

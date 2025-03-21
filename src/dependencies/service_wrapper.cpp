@@ -162,6 +162,15 @@ namespace dynamic_reconfigure_core
         return retrieved_params;
     }
 
+    std::map<std::string, int> ServiceWrapper::get_param_types() {
+        std::lock_guard param_mutex(params_mutex);
+
+        if (list_params_status.load() != ServiceWrapperStates::ERROR)
+            list_params_status.store(ServiceWrapperStates::IDLE);
+
+        return parameter_types;
+    }
+
     ServiceWrapperStates ServiceWrapper::get_list_status()
     {
         return list_params_status.load();

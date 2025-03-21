@@ -20,7 +20,7 @@ namespace dynamic_reconfigure
         logger = new Logger(log_box);
 
         rate = std::make_shared<rclcpp::Rate>(100);
-        
+
         executor_run.store(true);
         executor_thread = std::thread(&RvizDynamicReconfigure::update, this);
         executor_thread.detach();
@@ -37,16 +37,19 @@ namespace dynamic_reconfigure
         auto node_names = node_graph->get_node_names();
 
         for (std::string node_name : node_names)
-        {   
+        {
             node_name = (node_name.size() > 0 && node_name[0] == '/') ? node_name.substr(1) : node_name;
-            if(node_options->findText(QString::fromStdString(node_name)) != -1)
+            if (node_options->findText(QString::fromStdString(node_name)) != -1)
                 continue;
             QString item_name = QString::fromStdString(node_name);
             node_options->addItem(item_name);
         }
-        if(node_names.size() != node_options->count()) {
-            for(uint16_t idx = 0; idx < node_options->count();  idx++) {
-                if(std::find(node_names.begin(), node_names.end(), node_options->itemText(idx).toStdString()) == node_names.end()) {
+        if (node_names.size() != node_options->count())
+        {
+            for (uint16_t idx = 0; idx < node_options->count(); idx++)
+            {
+                if (std::find(node_names.begin(), node_names.end(), node_options->itemText(idx).toStdString()) == node_names.end())
+                {
                     node_options->removeItem(idx);
                     logger->debug("certain non-existant node removed from options.");
                 }
@@ -64,6 +67,8 @@ namespace dynamic_reconfigure
         if (active_node != "" && service_wrapper->request_params_list(active_node) == dynamic_reconfigure_core::ServiceWrapperReturnCodes::SUCCESS)
         {
             param_options->setEnabled(false);
+            param_slider->setEnabled(false);
+            line_input->setEnabled(false);
             logger->debug("requested params from " + active_node);
         }
         else
@@ -135,9 +140,53 @@ namespace dynamic_reconfigure
                 {
                     param_options->addItem(QString::fromStdString(param));
                 }
+                param_types = service_wrapper->get_param_types();
+
                 param_options->setEnabled(true);
                 param_options->setCurrentIndex(0);
+
                 logger->debug("refreshed params.");
+
+                std::vector<std::string> requested_params = {param_options->currentText().toStdString()};
+                service_wrapper->request_params(requested_params);
+                param_options->setEnabled(false);
+            }
+            else if (service_wrapper->get_list_status() == dynamic_reconfigure_core::ServiceWrapperStates::ERROR)
+            {
+                param_options->clear();
+                param_types.clear();
+            }
+
+            if (service_wrapper->get_request_status() == dynamic_reconfigure_core::ServiceWrapperStates::COMPLETE)
+            {
+                line_input->setEnabled(true);
+                param_options->setEnabled(true);
+
+                std::string current_text = param_options->currentText().toStdString();
+                QString place_holder = "", value = "";
+
+                auto requested_params = service_wrapper->get_params();
+
+                switch (requested_params[current_text].type)
+                {
+                case rclcpp::ParameterType::PARAMETER_INTEGER:
+                    line_input->setValidator(new QIntValidator());
+                    place_holder = "int";
+                    value = QString::number(requested_params[current_text].integer_value);
+                    break;
+                case rclcpp::ParameterType::PARAMETER_BOOL:
+                    line_input->setValidator(new QIntValidator(0, 1));
+                    value = QString::number(requested_params[current_text].bool_value);
+                    place_holder = "bool";
+                    break;
+                case rclcpp::ParameterType::PARAMETER_DOUBLE:
+                    line_input->setValidator(new QDoubleValidator());
+                    value = QString::number(requested_params[current_text].double_value);
+                    break;
+                }
+
+                line_input->setPlaceholderText(place_holder);
+                line_input->setText(value);
             }
             rate->sleep();
         }
@@ -176,8 +225,10 @@ namespace dynamic_reconfigure
         QObject::connect(search_shortcut, &QShortcut::activated, this, &RvizDynamicReconfigure::handle_shortcuts);
     }
 
-    bool RvizDynamicReconfigure::event(QEvent *event)  {
-        if (event->type() == QEvent::Hide) {
+    bool RvizDynamicReconfigure::event(QEvent *event)
+    {
+        if (event->type() == QEvent::Hide)
+        {
             executor_run.store(false);
             this->deleteLater();
         }

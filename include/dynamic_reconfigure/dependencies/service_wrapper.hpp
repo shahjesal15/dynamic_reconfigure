@@ -84,6 +84,10 @@ namespace dynamic_reconfigure_core
         /// @return std::vector<std::string>
         std::vector<std::string> get_params_list();
 
+        /// @brief get param types
+        /// @return std::map<std::string, int>
+        std::map<std::string, int> get_param_types();
+
         /// @brief get the requested params
         /// @return std::map<std::string, rcl_interfaces::msg::ParameterValue>
         std::map<std::string, rcl_interfaces::msg::ParameterValue> get_params();
