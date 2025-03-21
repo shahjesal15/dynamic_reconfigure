@@ -20,6 +20,8 @@ namespace dynamic_reconfigure
         logger = new Logger(log_box);
 
         rate = std::make_shared<rclcpp::Rate>(100);
+        
+        executor_run.store(true);
         executor_thread = std::thread(&RvizDynamicReconfigure::update, this);
         executor_thread.detach();
 
@@ -34,13 +36,22 @@ namespace dynamic_reconfigure
         // Get all node names and namespaces
         auto node_names = node_graph->get_node_names();
 
-        node_options->clear();
-
         for (std::string node_name : node_names)
-        {
+        {   
             node_name = (node_name.size() > 0 && node_name[0] == '/') ? node_name.substr(1) : node_name;
+            if(node_options->findText(QString::fromStdString(node_name)) != -1)
+                continue;
             QString item_name = QString::fromStdString(node_name);
             node_options->addItem(item_name);
+        }
+        if(node_names.size() != node_options->count()) {
+            for(uint16_t idx = 0; idx < node_options->count();  idx++) {
+                if(std::find(node_names.begin(), node_names.end(), node_options->itemText(idx).toStdString()) == node_names.end()) {
+                    node_options->removeItem(idx);
+                    logger->debug("certain non-existant node removed from options.");
+                }
+            }
+            load_params();
         }
     }
 
@@ -111,7 +122,7 @@ namespace dynamic_reconfigure
 
     void RvizDynamicReconfigure::update()
     {
-        while (rclcpp::ok())
+        while (executor_run.load() && rclcpp::ok())
         {
             rclcpp::spin_some(node_);
 
@@ -163,6 +174,14 @@ namespace dynamic_reconfigure
         QObject::connect(param_options, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &RvizDynamicReconfigure::handle_options);
 
         QObject::connect(search_shortcut, &QShortcut::activated, this, &RvizDynamicReconfigure::handle_shortcuts);
+    }
+
+    bool RvizDynamicReconfigure::event(QEvent *event)  {
+        if (event->type() == QEvent::Hide) {
+            executor_run.store(false);
+            this->deleteLater();
+        }
+        return rviz_common::Panel::event(event);
     }
 
     bool RvizDynamicReconfigure::eventFilter(QObject *obj, QEvent *event)

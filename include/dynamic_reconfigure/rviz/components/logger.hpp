@@ -7,6 +7,14 @@
 
 namespace dynamic_reconfigure
 {
+    enum LoggingLevel {
+        ALL = 0,
+        DEBUG,
+        INFO,
+        WARN,
+        ERROR
+    };
+
     class Logger
     {
         public:
@@ -30,11 +38,18 @@ namespace dynamic_reconfigure
             /// @param message 
             void warn(std::string message);
 
+            /// @brief set log level
+            /// @param level 
+            void set_log_level(LoggingLevel level);
+
             /// @brief destructor to the logger class
             ~Logger();
         protected:
             /// @brief log box object
             QPlainTextEdit *log_box;
+
+            /// @brief log level
+            LoggingLevel log_level;
     };
 }
 #endif // LOGGER_HPP__

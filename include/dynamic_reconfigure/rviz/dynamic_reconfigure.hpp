@@ -26,6 +26,7 @@
 #include <QCompleter>
 #include <QShortcut>
 #include <QKeySequence>
+#include <QCloseEvent>
 
 #include <rviz/components/logger.hpp>
 #include <dependencies/service_wrapper.hpp>
@@ -79,12 +80,20 @@ namespace dynamic_reconfigure
         /// @brief update function to handle requests and create responses.
         void update();
 
+        /// @brief executor thread update looop checking mechanism
+        std::atomic<bool> executor_run;
+
         /// @brief event filter 
         /// @param obj 
         /// @param event 
         /// @return 
         bool eventFilter(QObject *obj, QEvent *event) override;
 
+        /// @brief event handler
+        /// @param event 
+        /// @return 
+        bool event(QEvent *event) override;
+    
     private:
         /// @brief ros2 node shared parameter
         rclcpp::Node::SharedPtr node_;

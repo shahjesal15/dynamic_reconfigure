@@ -32,6 +32,13 @@ namespace dynamic_reconfigure_core
         auto list_future = list_params_client_->async_send_request(list_request,
                                                                    std::bind(&ServiceWrapper::list_params_cb, this, std::placeholders::_1));
 
+        list_wd_timer = std::make_unique<dynamic_reconfigure_dependencies::WatchDogTimer>("list_wd_timer", 100, [this]() {
+            list_params_status.store(ServiceWrapperStates::ERROR);
+            list_params_client_.reset();
+            list_params_client_ = node_->create_client<rcl_interfaces::srv::ListParameters>("/" + this->node_name + "/list_parameters");
+            RCLCPP_WARN_STREAM(node_->get_logger(), this->node_name + " couldn't access params.");
+        });
+
         return ServiceWrapperReturnCodes::SUCCESS;
     }
 
@@ -177,6 +184,8 @@ namespace dynamic_reconfigure_core
     {
         std::lock_guard client_lock(client_mutex);
 
+        this->node_name = node_name;
+
         set_params_client_ = node_->create_client<rcl_interfaces::srv::SetParametersAtomically>("/" + node_name + "/set_parameters_atomically");
         get_params_client_ = node_->create_client<rcl_interfaces::srv::GetParameters>("/" + node_name + "/get_parameters");
         list_params_client_ = node_->create_client<rcl_interfaces::srv::ListParameters>("/" + node_name + "/list_parameters");
@@ -202,6 +211,9 @@ namespace dynamic_reconfigure_core
             list_params_status.store(ServiceWrapperStates::ERROR);
             return;
         }
+
+        list_wd_timer->stop();
+        list_wd_timer.reset();
 
         params_mutex.lock();
         params.clear();

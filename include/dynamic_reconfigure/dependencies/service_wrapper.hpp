@@ -24,6 +24,8 @@
 #include <rcl_interfaces/srv/list_parameters.hpp>
 #include <rcl_interfaces/srv/describe_parameters.hpp>
 
+#include <dependencies/watchdog_timer.hpp>
+
 namespace dynamic_reconfigure_core
 {
     enum ServiceWrapperReturnCodes
@@ -94,6 +96,9 @@ namespace dynamic_reconfigure_core
         void reset_states();
 
     protected:
+        /// @brief node name of the current node
+        std::string node_name;
+
         /// @brief shared pointer to node
         rclcpp::Node::SharedPtr node_;
 
@@ -137,6 +142,15 @@ namespace dynamic_reconfigure_core
 
         /// @brief shared pointer to client that can describe params
         rclcpp::Client<rcl_interfaces::srv::DescribeParameters>::SharedPtr describe_params_client_;
+
+        /// @brief watchdog timer to monitor list parameters callback
+        std::unique_ptr<dynamic_reconfigure_dependencies::WatchDogTimer> list_wd_timer;
+
+        /// @brief watchdog timer to monitor get parameters callback
+        std::unique_ptr<dynamic_reconfigure_dependencies::WatchDogTimer> get_wd_timer;
+
+        /// @brief watchdog timer to monitor set parameters callback
+        std::unique_ptr<dynamic_reconfigure_dependencies::WatchDogTimer> set_wd_timer;
 
         /// @brief creates the client to set, get or list params and it's types.
         /// @param node_name

@@ -1,9 +1,9 @@
-#include "watchdog_timer.hpp"
+#include <dependencies/watchdog_timer.hpp>
 
-namespace dynamic_reconfigure_core
+namespace dynamic_reconfigure_dependencies
 {
-    WatchDogTimer::WatchDogTimer(unsigned int interval, std::function<void()> callback)
-        : interval(interval), callback(callback)
+    WatchDogTimer::WatchDogTimer(std::string wd_name, unsigned int interval, std::function<void()> callback)
+        : wd_name(wd_name), interval(interval), callback(callback)
     {
         init();
     }
@@ -20,12 +20,12 @@ namespace dynamic_reconfigure_core
 
         if (cv.wait_for(lock, std::chrono::milliseconds(interval)) == std::cv_status::no_timeout)
         {
-            std::cout << "thread stopped by condition" << std::endl;
+            std::cout << wd_name << " stopped by condition" << std::endl;
             active_status.store(WatchDogStatus::STOPPED);
         }
         else
         {
-            std::cout << "thread stopped by timeout" << std::endl;
+            std::cout << wd_name << " stopped by timeout" << std::endl;
             active_status.store(WatchDogStatus::TIMEOUT);
             callback();
         }

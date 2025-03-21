@@ -9,7 +9,7 @@
 #include <mutex>
 #include <condition_variable>
 
-namespace dynamic_reconfigure_core
+namespace dynamic_reconfigure_dependencies
 {
     enum WatchDogStatus {
         ACTIVE = 0,
@@ -23,7 +23,7 @@ namespace dynamic_reconfigure_core
         /// @brief WatchDogTimer constructor
         /// @param millis
         /// @param callback
-        WatchDogTimer(unsigned int interval, std::function<void()> callback);
+        WatchDogTimer(std::string wd_name, unsigned int interval, std::function<void()> callback);
 
         /// @brief stops the watch dog timer
         void stop();
@@ -39,6 +39,9 @@ namespace dynamic_reconfigure_core
         ~WatchDogTimer();
 
     protected:
+        /// @brief watchdog timer name
+        std::string wd_name; 
+        
         /// @brief watchdog thread that monitors the timeout 
         std::thread watchdog_thread;
         

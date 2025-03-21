@@ -19,18 +19,21 @@ include_directories(
   include/dynamic_reconfigure
 )
 
+add_library(watchdog_timer src/dependencies/watchdog_timer.cpp)
+set_target_properties(watchdog_timer PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
 add_library(service_wrapper src/dependencies/service_wrapper.cpp)
 set_target_properties(service_wrapper PROPERTIES POSITION_INDEPENDENT_CODE ON)
 ament_target_dependencies(service_wrapper rclcpp rcl_interfaces std_msgs)
-target_link_libraries(service_wrapper fmt::fmt)
-
-add_executable(service_wrapper_test tests/service_wrapper_test.cpp)
-ament_target_dependencies(service_wrapper_test rclcpp rcl_interfaces std_msgs)
-target_link_libraries(service_wrapper_test service_wrapper)
+target_link_libraries(service_wrapper fmt::fmt watchdog_timer)
 
 add_library(logger src/rviz/components/logger.cpp)
 set_target_properties(logger PROPERTIES POSITION_INDEPENDENT_CODE ON)
 target_link_libraries(logger Qt5::Widgets fmt::fmt)
+
+add_executable(service_wrapper_test tests/service_wrapper_test.cpp)
+ament_target_dependencies(service_wrapper_test rclcpp rcl_interfaces std_msgs)
+target_link_libraries(service_wrapper_test service_wrapper)
 
 set(CMAKE_AUTOMOC ON)
 
@@ -61,7 +64,7 @@ install(
 )
 
 install(TARGETS
-  dynamic_reconfigure service_wrapper logger
+  dynamic_reconfigure service_wrapper logger watchdog_timer
   EXPORT dynamic_reconfigure
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
