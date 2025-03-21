@@ -95,9 +95,33 @@ namespace dynamic_reconfigure
         QObject *sender = QObject::sender();
         if (sender == set_btn)
         {
+            std::string param = param_options->currentText().toStdString();
+            rclcpp::ParameterValue value;
+
+            QString user_input = line_input->text();
+
+            switch (param_types[param])
+            {
+            case rclcpp::ParameterType::PARAMETER_INTEGER:
+                value = rclcpp::ParameterValue(user_input.toInt());
+                break;
+            case rclcpp::ParameterType::PARAMETER_BOOL:
+                value = rclcpp::ParameterValue(user_input.toInt() == 1 ? true : false);
+                break;
+            case rclcpp::ParameterType::PARAMETER_DOUBLE:
+                value = rclcpp::ParameterValue(user_input.toDouble());
+                break;
+            }
+
+            std::vector<rclcpp::Parameter> to_set = {
+                rclcpp::Parameter(param, value),
+            };
+            service_wrapper->set_params(to_set);
         }
         else if (sender == get_btn)
         {
+            std::vector<std::string> requested_params = {param_options->currentText().toStdString()};
+            service_wrapper->request_params(requested_params);
         }
     }
 
@@ -142,14 +166,13 @@ namespace dynamic_reconfigure
                 }
                 param_types = service_wrapper->get_param_types();
 
-                param_options->setEnabled(true);
                 param_options->setCurrentIndex(0);
+                param_options->setEnabled(false);
 
                 logger->debug("refreshed params.");
 
                 std::vector<std::string> requested_params = {param_options->currentText().toStdString()};
                 service_wrapper->request_params(requested_params);
-                param_options->setEnabled(false);
             }
             else if (service_wrapper->get_list_status() == dynamic_reconfigure_core::ServiceWrapperStates::ERROR)
             {
@@ -183,10 +206,20 @@ namespace dynamic_reconfigure
                     line_input->setValidator(new QDoubleValidator());
                     value = QString::number(requested_params[current_text].double_value);
                     break;
+                default:
+                    line_input->setValidator(nullptr);
                 }
 
                 line_input->setPlaceholderText(place_holder);
                 line_input->setText(value);
+            }
+            else if (service_wrapper->get_request_status() == dynamic_reconfigure_core::ServiceWrapperStates::ERROR)
+            {
+
+            }
+
+            if (service_wrapper->get_set_status() == dynamic_reconfigure_core::ServiceWrapperStates::COMPLETE) {
+                logger->debug("param set.");
             }
             rate->sleep();
         }
