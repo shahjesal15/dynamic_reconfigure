@@ -125,9 +125,6 @@ namespace dynamic_reconfigure
         /// @brief line inputs
         QLineEdit *line_input;
 
-        /// @brief slider to adjust the values of the params
-        QSlider *param_slider;
-
         /// @brief menu bar for the params settings
         QMenuBar *menu_bar;
 

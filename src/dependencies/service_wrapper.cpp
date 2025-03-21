@@ -86,6 +86,13 @@ namespace dynamic_reconfigure_core
             get_param_request,
             std::bind(&ServiceWrapper::request_params_cb, this, std::placeholders::_1));
 
+        get_wd_timer = std::make_unique<dynamic_reconfigure_dependencies::WatchDogTimer>("get_wd_timer", 100, [this]() {
+            request_params_status.store(ServiceWrapperStates::ERROR);
+            get_params_client_.reset();
+            get_params_client_ = node_->create_client<rcl_interfaces::srv::GetParameters>("/" + this->node_name + "/get_parameters");
+            RCLCPP_WARN_STREAM(node_->get_logger(), this->node_name + " couldn't access params.");
+        });
+
         return ServiceWrapperReturnCodes::SUCCESS;
     }
 
@@ -124,6 +131,13 @@ namespace dynamic_reconfigure_core
             set_param_request,
             std::bind(&ServiceWrapper::set_params_cb, this, std::placeholders::_1));
 
+        set_wd_timer = std::make_unique<dynamic_reconfigure_dependencies::WatchDogTimer>("set_wd_timer", 100, [this]() {
+            set_params_status.store(ServiceWrapperStates::ERROR);
+            set_params_client_.reset();
+            set_params_client_ = node_->create_client<rcl_interfaces::srv::SetParametersAtomically>("/" + this->node_name + "/set_parameters_atomically");
+            RCLCPP_WARN_STREAM(node_->get_logger(), this->node_name + " couldn't access params.");
+        });
+    
         return ServiceWrapperReturnCodes::SUCCESS;
     }
 
@@ -221,9 +235,6 @@ namespace dynamic_reconfigure_core
             return;
         }
 
-        list_wd_timer->stop();
-        list_wd_timer.reset();
-
         params_mutex.lock();
         params.clear();
 
@@ -243,6 +254,10 @@ namespace dynamic_reconfigure_core
         const rclcpp::Client<rcl_interfaces::srv::DescribeParameters>::SharedFuture future)
     {
         auto result = future.get();
+
+        list_wd_timer->stop();
+        list_wd_timer.reset();
+
         if (!result)
         {
             RCLCPP_ERROR_STREAM(node_->get_logger(),
@@ -269,6 +284,9 @@ namespace dynamic_reconfigure_core
     {
         auto result = future.get();
 
+        get_wd_timer->stop();
+        get_wd_timer.reset();
+
         uint32_t not_set_params = 0;
 
         if (!result)
@@ -277,7 +295,8 @@ namespace dynamic_reconfigure_core
             RCLCPP_WARN_STREAM(node_->get_logger(),"parameter get failure, with unknown error");
             return;
         }
-
+        
+        
         requested_params_mutex.lock();
 
         if (result->values.size() != requested_params.size())
@@ -308,6 +327,10 @@ namespace dynamic_reconfigure_core
     void ServiceWrapper::set_params_cb(const rclcpp::Client<rcl_interfaces::srv::SetParametersAtomically>::SharedFuture future)
     {
         auto result = future.get();
+
+        set_wd_timer->stop();
+        set_wd_timer.reset();
+
         if (!result)
         {
             set_params_status.store(ServiceWrapperStates::ERROR);

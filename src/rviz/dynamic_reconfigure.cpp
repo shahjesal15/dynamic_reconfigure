@@ -8,6 +8,9 @@ namespace dynamic_reconfigure
         node_name = "Dynamic Reconfigure";
         setWindowTitle(node_name);
         this->init_ui();
+
+        logger = new Logger(log_box, parent);
+
         this->setup_menu();
         this->setup_widgets();
     }
@@ -17,7 +20,6 @@ namespace dynamic_reconfigure
         node_ = rclcpp::Node::make_shared("rviz_dynamic_reconfigure");
         service_wrapper = std::make_unique<dynamic_reconfigure_core::ServiceWrapper>(
             node_->shared_from_this());
-        logger = new Logger(log_box);
 
         rate = std::make_shared<rclcpp::Rate>(100);
 
@@ -44,6 +46,7 @@ namespace dynamic_reconfigure
             QString item_name = QString::fromStdString(node_name);
             node_options->addItem(item_name);
         }
+
         if (node_names.size() != node_options->count())
         {
             for (uint16_t idx = 0; idx < node_options->count(); idx++)
@@ -62,18 +65,19 @@ namespace dynamic_reconfigure
     {
         std::string active_node = node_options->currentText().toStdString();
 
-        RCLCPP_INFO_STREAM(node_->get_logger(), active_node);
-
+        param_options->setEnabled(false);
+        line_input->setEnabled(false);
+        set_btn->setEnabled(false);
+        get_btn->setEnabled(false);
+            
         if (active_node != "" && service_wrapper->request_params_list(active_node) == dynamic_reconfigure_core::ServiceWrapperReturnCodes::SUCCESS)
         {
-            param_options->setEnabled(false);
-            param_slider->setEnabled(false);
-            line_input->setEnabled(false);
             logger->debug("requested params from " + active_node);
         }
         else
         {
-            logger->debug("error occured while requesting params from " + active_node);
+
+            logger->error("error occured while requesting params from " + active_node);
         }
     }
 
@@ -87,8 +91,14 @@ namespace dynamic_reconfigure
         }
         else if (sender == param_options)
         {
-            std::vector<std::string> requested_params = {param_options->currentText().toStdString()};
+            std::string param = param_options->currentText().toStdString();
+
+            if(param.empty()) return;
+            
+            std::vector<std::string> requested_params = {param};
             service_wrapper->request_params(requested_params);
+
+            logger->debug("requesting param : " + param);
         }
     }
 
@@ -122,11 +132,19 @@ namespace dynamic_reconfigure
                 rclcpp::Parameter(param, value),
             };
             service_wrapper->set_params(to_set);
+            logger->debug("updating param : " + param + " to " + user_input.toStdString());
+           
+            line_input->setEnabled(false);
+            param_options->setEnabled(false);
+            set_btn->setEnabled(false);
+            get_btn->setEnabled(false);        
+
         }
         else if (sender == get_btn)
         {
             std::vector<std::string> requested_params = {param_options->currentText().toStdString()};
             service_wrapper->request_params(requested_params);
+            logger->debug("requested param : " + requested_params[0]);
         }
     }
 
@@ -137,12 +155,14 @@ namespace dynamic_reconfigure
 
         if (sender == search_shortcut)
         {
-            if (focused_widget == node_options)
+            if (focused_widget == node_options  )
             {
                 node_options->setEditable(true);
                 node_options->setInsertPolicy(QComboBox::NoInsert);
                 node_options->completer()->setCaseSensitivity(Qt::CaseInsensitive);
                 node_options->completer()->setFilterMode(Qt::MatchContains);
+
+                logger->debug("searching nodes");
             }
             else if (focused_widget == param_options)
             {
@@ -150,6 +170,8 @@ namespace dynamic_reconfigure
                 param_options->setInsertPolicy(QComboBox::NoInsert);
                 param_options->completer()->setCaseSensitivity(Qt::CaseInsensitive);
                 param_options->completer()->setFilterMode(Qt::MatchContains);
+
+                logger->debug("searching params");
             }
         }
     }
@@ -159,6 +181,8 @@ namespace dynamic_reconfigure
         while (executor_run.load() && rclcpp::ok())
         {
             rclcpp::spin_some(node_);
+
+            RCLCPP_DEBUG_STREAM(node_->get_logger(), "executing reconfigure node.");
 
             if (service_wrapper->get_list_status() == dynamic_reconfigure_core::ServiceWrapperStates::COMPLETE)
             {
@@ -189,6 +213,8 @@ namespace dynamic_reconfigure
             {
                 line_input->setEnabled(true);
                 param_options->setEnabled(true);
+                set_btn->setEnabled(true);
+                get_btn->setEnabled(true);        
 
                 std::string current_text = param_options->currentText().toStdString();
                 QString place_holder = "", value = "";
@@ -227,11 +253,18 @@ namespace dynamic_reconfigure
             }
             else if (service_wrapper->get_request_status() == dynamic_reconfigure_core::ServiceWrapperStates::ERROR)
             {
+                param_options->setEnabled(true);
+                logger->error("failed to get certain params");
             }
 
             if (service_wrapper->get_set_status() == dynamic_reconfigure_core::ServiceWrapperStates::COMPLETE)
             {
-                logger->debug("param set.");
+                line_input->setEnabled(true);
+                param_options->setEnabled(true);
+                set_btn->setEnabled(true);
+                get_btn->setEnabled(true);        
+                
+                logger->debug("certain params were set.");
             }
             rate->sleep();
         }
@@ -287,10 +320,12 @@ namespace dynamic_reconfigure
             if (obj == node_options)
             {
                 node_options->setEditable(false);
+                logger->debug("lost focus from node options");
             }
             else if (obj == param_options)
             {
                 param_options->setEditable(false);
+                logger->debug("lost focus from param options");
             }
         }
         return QObject::eventFilter(obj, event);
@@ -299,7 +334,6 @@ namespace dynamic_reconfigure
     void RvizDynamicReconfigure::load_configurations()
     {
         list_nodes();
-        load_params();
     }
 
     void RvizDynamicReconfigure::init_ui()
@@ -312,8 +346,6 @@ namespace dynamic_reconfigure
         param_options = new QComboBox();
 
         line_input = new QLineEdit();
-
-        param_slider = new QSlider(Qt::Horizontal);
 
         set_btn = new QPushButton("Set");
         get_btn = new QPushButton("Get");
@@ -329,10 +361,9 @@ namespace dynamic_reconfigure
         edit_layout->addWidget(set_btn, 3);
         edit_layout->addWidget(get_btn, 3);
 
-        reconfiguration_layout->addLayout(options_layout, 2);
-        reconfiguration_layout->addWidget(param_slider, 1);
+        reconfiguration_layout->addLayout(options_layout, 3);
         reconfiguration_layout->addLayout(edit_layout, 3);
-        reconfiguration_layout->addWidget(log_box, 4);
+        reconfiguration_layout->addWidget(log_box, 6);
 
         setLayout(reconfiguration_layout);
     }

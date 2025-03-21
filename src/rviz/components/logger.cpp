@@ -1,8 +1,15 @@
 #include "rviz/components/logger.hpp"
 
 namespace dynamic_reconfigure {
-    Logger::Logger(QPlainTextEdit *log_box_) : log_box(log_box_) {
+    Logger::Logger(QPlainTextEdit *log_box_, QObject *parent) : log_box(log_box_), QObject(parent) {
         set_log_level(LoggingLevel::DEBUG);
+        QObject::connect(this, &Logger::logMessage, this, &Logger::appendLog, Qt::QueuedConnection);
+    }
+
+    void Logger::appendLog(const QString &message) {
+        if (log_box) {
+            log_box->appendHtml(message);  // UI update happens in the main thread
+        }
     }
 
     void Logger::error(std::string message) {
@@ -10,7 +17,7 @@ namespace dynamic_reconfigure {
             return;
 
         std::string buffer = "<p><span style=\"color: red; font-weight: bold;\">error </span>" + message + "</p>";        
-        log_box->appendHtml(QString::fromStdString(buffer));
+        emit logMessage(QString::fromStdString(buffer));
     }
 
     void Logger::info(std::string message) {
@@ -18,7 +25,7 @@ namespace dynamic_reconfigure {
             return;
 
         std::string buffer = "<p><span style=\"color: blue; font-weight: bold;\">info </span>" + message + "</p>";        
-        log_box->appendHtml(QString::fromStdString(buffer));
+        emit logMessage(QString::fromStdString(buffer));
     }
 
     void Logger::debug(std::string message) {
@@ -26,7 +33,7 @@ namespace dynamic_reconfigure {
             return;
 
         std::string buffer = "<p><span style=\"color: green; font-weight: bold;\">debug </span>" + message + "</p>";        
-        log_box->appendHtml(QString::fromStdString(buffer));
+        emit logMessage(QString::fromStdString(buffer));        
     }
 
     void Logger::warn(std::string message) {
@@ -34,7 +41,7 @@ namespace dynamic_reconfigure {
             return;
 
         std::string buffer = "<p><span style=\"color: #FBB117; font-weight: bold;\">warning </span>" + message + "</p>";        
-        log_box->appendHtml(QString::fromStdString(buffer));
+        emit logMessage(QString::fromStdString(buffer));        
     }
 
     void Logger::set_log_level(LoggingLevel log_level) {
