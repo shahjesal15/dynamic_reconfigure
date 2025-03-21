@@ -195,6 +195,7 @@ namespace dynamic_reconfigure
 
                 auto requested_params = service_wrapper->get_params();
 
+                QRegularExpression regex = QRegularExpression("[01]");
                 line_input->setValidator(nullptr);
 
                 switch (requested_params[current_text].type)
@@ -205,11 +206,12 @@ namespace dynamic_reconfigure
                     value = QString::number(requested_params[current_text].integer_value);
                     break;
                 case rclcpp::ParameterType::PARAMETER_BOOL:
-                    line_input->setValidator(new QIntValidator(0, 1));
+                    line_input->setValidator(new QRegularExpressionValidator(regex));
+                    logger->warn("here");
                     value = QString::number(requested_params[current_text].bool_value);
                     place_holder = "bool";
                     break;
-                case rclcpp::ParameterType::PARAMETER_DOUBLE:                
+                case rclcpp::ParameterType::PARAMETER_DOUBLE:
                     line_input->setValidator(new QDoubleValidator());
                     place_holder = "double";
                     value = QString::number(requested_params[current_text].double_value);
@@ -217,7 +219,7 @@ namespace dynamic_reconfigure
                 case rclcpp::ParameterType::PARAMETER_STRING:
                     value = QString::fromStdString(requested_params[current_text].string_value);
                     place_holder = "string";
-                    break;                    
+                    break;
                 }
 
                 line_input->setPlaceholderText(place_holder);
@@ -225,10 +227,10 @@ namespace dynamic_reconfigure
             }
             else if (service_wrapper->get_request_status() == dynamic_reconfigure_core::ServiceWrapperStates::ERROR)
             {
-
             }
 
-            if (service_wrapper->get_set_status() == dynamic_reconfigure_core::ServiceWrapperStates::COMPLETE) {
+            if (service_wrapper->get_set_status() == dynamic_reconfigure_core::ServiceWrapperStates::COMPLETE)
+            {
                 logger->debug("param set.");
             }
             rate->sleep();

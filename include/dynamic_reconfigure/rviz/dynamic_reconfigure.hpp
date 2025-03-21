@@ -29,6 +29,7 @@
 #include <QCloseEvent>
 #include <QIntValidator>
 #include <QDoubleValidator>
+#include <QRegularExpressionValidator>
 
 #include <rviz/components/logger.hpp>
 #include <dependencies/service_wrapper.hpp>
