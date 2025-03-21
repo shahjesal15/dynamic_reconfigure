@@ -87,6 +87,8 @@ namespace dynamic_reconfigure
         }
         else if (sender == param_options)
         {
+            std::vector<std::string> requested_params = {param_options->currentText().toStdString()};
+            service_wrapper->request_params(requested_params);
         }
     }
 
@@ -110,6 +112,9 @@ namespace dynamic_reconfigure
                 break;
             case rclcpp::ParameterType::PARAMETER_DOUBLE:
                 value = rclcpp::ParameterValue(user_input.toDouble());
+                break;
+            case rclcpp::ParameterType::PARAMETER_STRING:
+                value = rclcpp::ParameterValue(user_input.toStdString());
                 break;
             }
 
@@ -190,6 +195,8 @@ namespace dynamic_reconfigure
 
                 auto requested_params = service_wrapper->get_params();
 
+                line_input->setValidator(nullptr);
+
                 switch (requested_params[current_text].type)
                 {
                 case rclcpp::ParameterType::PARAMETER_INTEGER:
@@ -202,12 +209,15 @@ namespace dynamic_reconfigure
                     value = QString::number(requested_params[current_text].bool_value);
                     place_holder = "bool";
                     break;
-                case rclcpp::ParameterType::PARAMETER_DOUBLE:
+                case rclcpp::ParameterType::PARAMETER_DOUBLE:                
                     line_input->setValidator(new QDoubleValidator());
+                    place_holder = "double";
                     value = QString::number(requested_params[current_text].double_value);
                     break;
-                default:
-                    line_input->setValidator(nullptr);
+                case rclcpp::ParameterType::PARAMETER_STRING:
+                    value = QString::fromStdString(requested_params[current_text].string_value);
+                    place_holder = "string";
+                    break;                    
                 }
 
                 line_input->setPlaceholderText(place_holder);

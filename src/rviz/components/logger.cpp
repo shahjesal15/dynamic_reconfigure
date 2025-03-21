@@ -2,7 +2,7 @@
 
 namespace dynamic_reconfigure {
     Logger::Logger(QPlainTextEdit *log_box_) : log_box(log_box_) {
-        set_log_level(LoggingLevel::INFO);
+        set_log_level(LoggingLevel::DEBUG);
     }
 
     void Logger::error(std::string message) {
