@@ -13,9 +13,9 @@ namespace dynamic_reconfigure_core
 
     ServiceWrapperReturnCodes ServiceWrapper::request_params_list(std::string node_name)
     {
-        if(list_params_status.load() == ServiceWrapperStates::ERROR)
+        if (list_params_status.load() == ServiceWrapperStates::ERROR)
             list_params_status.store(ServiceWrapperStates::IDLE);
-        
+
         if (list_params_status.load() != ServiceWrapperStates::IDLE)
             return ServiceWrapperReturnCodes::BUSY;
 
@@ -32,12 +32,12 @@ namespace dynamic_reconfigure_core
         auto list_future = list_params_client_->async_send_request(list_request,
                                                                    std::bind(&ServiceWrapper::list_params_cb, this, std::placeholders::_1));
 
-        list_wd_timer = std::make_unique<dynamic_reconfigure_dependencies::WatchDogTimer>("list_wd_timer", 100, [this]() {
+        list_wd_timer = std::make_unique<dynamic_reconfigure_dependencies::WatchDogTimer>("list_wd_timer", 100, [this]()
+                                                                                          {
             list_params_status.store(ServiceWrapperStates::ERROR);
             list_params_client_.reset();
             list_params_client_ = node_->create_client<rcl_interfaces::srv::ListParameters>("/" + this->node_name + "/list_parameters");
-            RCLCPP_WARN_STREAM(node_->get_logger(), this->node_name + " couldn't access params.");
-        });
+            RCLCPP_WARN_STREAM(node_->get_logger(), this->node_name + " couldn't access params."); });
 
         return ServiceWrapperReturnCodes::SUCCESS;
     }
@@ -86,18 +86,21 @@ namespace dynamic_reconfigure_core
             get_param_request,
             std::bind(&ServiceWrapper::request_params_cb, this, std::placeholders::_1));
 
-        get_wd_timer = std::make_unique<dynamic_reconfigure_dependencies::WatchDogTimer>("get_wd_timer", 100, [this]() {
+        get_wd_timer = std::make_unique<dynamic_reconfigure_dependencies::WatchDogTimer>("get_wd_timer", 100, [this]()
+                                                                                         {
             request_params_status.store(ServiceWrapperStates::ERROR);
             get_params_client_.reset();
             get_params_client_ = node_->create_client<rcl_interfaces::srv::GetParameters>("/" + this->node_name + "/get_parameters");
-            RCLCPP_WARN_STREAM(node_->get_logger(), this->node_name + " couldn't access params.");
-        });
+            RCLCPP_WARN_STREAM(node_->get_logger(), this->node_name + " couldn't access params."); });
 
         return ServiceWrapperReturnCodes::SUCCESS;
     }
 
     ServiceWrapperReturnCodes ServiceWrapper::set_params(const std::vector<rclcpp::Parameter> &parameters)
     {
+        if (set_params_status.load() == ServiceWrapperStates::ERROR)
+            set_params_status.store(ServiceWrapperStates::IDLE);
+
         if (set_params_status.load() != ServiceWrapperStates::IDLE)
             return ServiceWrapperReturnCodes::BUSY;
 
@@ -131,13 +134,13 @@ namespace dynamic_reconfigure_core
             set_param_request,
             std::bind(&ServiceWrapper::set_params_cb, this, std::placeholders::_1));
 
-        set_wd_timer = std::make_unique<dynamic_reconfigure_dependencies::WatchDogTimer>("set_wd_timer", 100, [this]() {
+        set_wd_timer = std::make_unique<dynamic_reconfigure_dependencies::WatchDogTimer>("set_wd_timer", 100, [this]()
+                                                                                         {
             set_params_status.store(ServiceWrapperStates::ERROR);
             set_params_client_.reset();
             set_params_client_ = node_->create_client<rcl_interfaces::srv::SetParametersAtomically>("/" + this->node_name + "/set_parameters_atomically");
-            RCLCPP_WARN_STREAM(node_->get_logger(), this->node_name + " couldn't access params.");
-        });
-    
+            RCLCPP_WARN_STREAM(node_->get_logger(), this->node_name + " couldn't access params."); });
+
         return ServiceWrapperReturnCodes::SUCCESS;
     }
 
@@ -176,7 +179,8 @@ namespace dynamic_reconfigure_core
         return retrieved_params;
     }
 
-    std::map<std::string, int> ServiceWrapper::get_param_types() {
+    std::map<std::string, int> ServiceWrapper::get_param_types()
+    {
         std::lock_guard param_mutex(params_mutex);
 
         if (list_params_status.load() != ServiceWrapperStates::ERROR)
@@ -195,8 +199,10 @@ namespace dynamic_reconfigure_core
         return request_params_status.load();
     }
 
-    ServiceWrapperStates ServiceWrapper::get_set_status() {
-        if(set_params_status.load() == ServiceWrapperStates::COMPLETE) {
+    ServiceWrapperStates ServiceWrapper::get_set_status()
+    {
+        if (set_params_status.load() == ServiceWrapperStates::COMPLETE)
+        {
             set_params_status.store(ServiceWrapperStates::IDLE);
             return ServiceWrapperStates::COMPLETE;
         }
@@ -221,6 +227,10 @@ namespace dynamic_reconfigure_core
                             fmt::format(fg(fmt::color::turquoise), "clearing errors"));
         if (list_params_status.load() == ServiceWrapperStates::ERROR)
             list_params_status.store(ServiceWrapperStates::IDLE);
+        if (set_params_status.load() == ServiceWrapperStates::ERROR)
+            set_params_status.store(ServiceWrapperStates::IDLE);
+        if (request_params_status.load() == ServiceWrapperStates::ERROR)
+            request_params_status.store(ServiceWrapperStates::IDLE);
     }
 
     void ServiceWrapper::list_params_cb(
@@ -284,19 +294,21 @@ namespace dynamic_reconfigure_core
     {
         auto result = future.get();
 
-        get_wd_timer->stop();
-        get_wd_timer.reset();
+        if (get_wd_timer)
+        {
+            get_wd_timer->stop();
+            get_wd_timer.reset();
+        }
 
         uint32_t not_set_params = 0;
 
         if (!result)
         {
             request_params_status.store(ServiceWrapperStates::ERROR);
-            RCLCPP_WARN_STREAM(node_->get_logger(),"parameter get failure, with unknown error");
+            RCLCPP_WARN_STREAM(node_->get_logger(), "parameter get failure, with unknown error");
             return;
         }
-        
-        
+
         requested_params_mutex.lock();
 
         if (result->values.size() != requested_params.size())

@@ -10,6 +10,7 @@ namespace dynamic_reconfigure
         this->init_ui();
 
         logger = new DiagnosticsLogger(log_box, parent);
+        logger->set_log_level(DiagnosticsLevel::INFO);
 
         this->setup_menu();
         this->setup_widgets();
@@ -200,8 +201,6 @@ namespace dynamic_reconfigure
 
                 logger->debug("refreshed params.");
 
-                logger->update_logs();
-
                 std::vector<std::string> requested_params = {param_options->currentText().toStdString()};
                 service_wrapper->request_params(requested_params);
             }
@@ -209,6 +208,7 @@ namespace dynamic_reconfigure
             {
                 param_options->clear();
                 param_types.clear();
+                service_wrapper->clear_errors();
             }
 
             if (service_wrapper->get_request_status() == dynamic_reconfigure_core::ServiceWrapperStates::COMPLETE)
@@ -235,7 +235,6 @@ namespace dynamic_reconfigure
                     break;
                 case rclcpp::ParameterType::PARAMETER_BOOL:
                     line_input->setValidator(new QRegularExpressionValidator(regex));
-                    logger->warn("here");
                     value = QString::number(requested_params[current_text].bool_value);
                     place_holder = "bool";
                     break;
@@ -257,6 +256,7 @@ namespace dynamic_reconfigure
             {
                 param_options->setEnabled(true);
                 logger->error("failed to get certain params");
+                service_wrapper->clear_errors();
             }
 
             if (service_wrapper->get_set_status() == dynamic_reconfigure_core::ServiceWrapperStates::COMPLETE)
@@ -267,7 +267,16 @@ namespace dynamic_reconfigure
                 get_btn->setEnabled(true);        
                 
                 logger->debug("certain params were set.");
+            } else if(service_wrapper->get_set_status() == dynamic_reconfigure_core::ServiceWrapperStates::ERROR) {
+                line_input->setEnabled(true);
+                param_options->setEnabled(true);
+                set_btn->setEnabled(true);
+                get_btn->setEnabled(true);
+
+                logger->error("failed to set param.");
+                service_wrapper->clear_errors();
             }
+            logger->update_logs();
             rate->sleep();
         }
     }

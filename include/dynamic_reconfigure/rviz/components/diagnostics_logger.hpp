@@ -1,6 +1,7 @@
 #ifndef LOGGER_HPP__
 #define LOGGER_HPP__
 
+#include <iostream>
 #include <queue>
 #include <mutex>
 #include <atomic>

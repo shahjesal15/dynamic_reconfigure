@@ -41,7 +41,6 @@ namespace dynamic_reconfigure
         std::lock_guard<std::mutex> lock(queue_mutex);
 
         std::string buffer = "<p><span style=\"color: blue; font-weight: bold;\">info </span>" + message + "</p>";
-        // diagnostics_queue.push(message_id++, DiagnosticsLevel::INFO, buffer);
         diagnostics_queue.push(DiagnosticsEntry(message_id++, DiagnosticsLevel::INFO, buffer));
 
     }
@@ -54,7 +53,6 @@ namespace dynamic_reconfigure
         std::lock_guard<std::mutex> lock(queue_mutex);
 
         std::string buffer = "<p><span style=\"color: green; font-weight: bold;\">debug </span>" + message + "</p>";
-        // diagnostics_queue.push(message_id++, DiagnosticsLevel::DEBUG, buffer);
         diagnostics_queue.push(DiagnosticsEntry(message_id++, DiagnosticsLevel::DEBUG, buffer));        
     }
 
@@ -66,7 +64,6 @@ namespace dynamic_reconfigure
         std::lock_guard<std::mutex> lock(queue_mutex);
 
         std::string buffer = "<p><span style=\"color: #FBB117; font-weight: bold;\">warning </span>" + message + "</p>";
-        // diagnostics_queue.push(message_id++, DiagnosticsLevel::WARN, buffer);
         diagnostics_queue.push(DiagnosticsEntry(message_id++, DiagnosticsLevel::WARN, buffer));
         
     }
@@ -74,10 +71,12 @@ namespace dynamic_reconfigure
     void DiagnosticsLogger::update_logs() {
         std::lock_guard<std::mutex> lock(queue_mutex);
         
-        DiagnosticsEntry log;
+        DiagnosticsEntry log;        
+
         while(!diagnostics_queue.empty()) {
             log = diagnostics_queue.top();
             log_box->appendHtml(QString::fromStdString(log.message));
+            std::cout << log.message << std::endl;
             diagnostics_queue.pop();
         }
     }
