@@ -9,7 +9,7 @@ namespace dynamic_reconfigure
         setWindowTitle(node_name);
         this->init_ui();
 
-        logger = new Logger(log_box, parent);
+        logger = new DiagnosticsLogger(log_box, parent);
 
         this->setup_menu();
         this->setup_widgets();
@@ -199,6 +199,8 @@ namespace dynamic_reconfigure
                 param_options->setEnabled(false);
 
                 logger->debug("refreshed params.");
+
+                logger->update_logs();
 
                 std::vector<std::string> requested_params = {param_options->currentText().toStdString()};
                 service_wrapper->request_params(requested_params);

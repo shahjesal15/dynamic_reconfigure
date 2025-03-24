@@ -31,7 +31,7 @@
 #include <QDoubleValidator>
 #include <QRegularExpressionValidator>
 
-#include <rviz/components/logger.hpp>
+#include <rviz/components/diagnostics_logger.hpp>
 #include <dependencies/service_wrapper.hpp>
 
 namespace dynamic_reconfigure
@@ -138,7 +138,7 @@ namespace dynamic_reconfigure
         QPlainTextEdit *log_box;
 
         /// @brief logger for displaying warnings, messages, etc.
-        Logger *logger;
+        DiagnosticsLogger *logger;
 
         /// @brief rate of spin of the node
         std::shared_ptr<rclcpp::Rate> rate;
