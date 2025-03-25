@@ -8,6 +8,8 @@
 
 #include <QObject>
 #include <QPlainTextEdit>
+#include <QMetaType>
+
 #include <fmt/core.h>
 #include <fmt/color.h>
 

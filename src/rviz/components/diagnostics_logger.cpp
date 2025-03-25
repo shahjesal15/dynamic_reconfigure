@@ -18,6 +18,7 @@ namespace dynamic_reconfigure
 
     DiagnosticsLogger::DiagnosticsLogger(QPlainTextEdit *log_box_, QObject *parent) : log_box(log_box_), QObject(parent)
     {
+        qRegisterMetaType<QTextCursor>("QTextCursor");
         set_log_level(DiagnosticsLevel::DEBUG);
         message_id = 0;
     }
@@ -69,16 +70,14 @@ namespace dynamic_reconfigure
     }
 
     void DiagnosticsLogger::update_logs() {
-        std::lock_guard<std::mutex> lock(queue_mutex);
-        
-        DiagnosticsEntry log;        
-
-        while(!diagnostics_queue.empty()) {
-            log = diagnostics_queue.top();
-            log_box->appendHtml(QString::fromStdString(log.message));
-            std::cout << log.message << std::endl;
-            diagnostics_queue.pop();
-        }
+        QMetaObject::invokeMethod(log_box, [this]() {
+            std::lock_guard<std::mutex> lock(queue_mutex);
+            while(!diagnostics_queue.empty()) {
+                auto log = diagnostics_queue.top();
+                log_box->appendHtml(QString::fromStdString(log.message));
+                diagnostics_queue.pop();
+            }
+        }, Qt::QueuedConnection);
     }
 
     void DiagnosticsLogger::set_log_level(DiagnosticsLevel log_level)

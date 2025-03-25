@@ -20,12 +20,10 @@ namespace dynamic_reconfigure_dependencies
 
         if (cv.wait_for(lock, std::chrono::milliseconds(interval)) == std::cv_status::no_timeout)
         {
-            std::cout << wd_name << " stopped by condition" << std::endl;
             active_status.store(WatchDogStatus::STOPPED);
         }
         else
         {
-            std::cout << wd_name << " stopped by timeout" << std::endl;
             active_status.store(WatchDogStatus::TIMEOUT);
             callback();
         }
