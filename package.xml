@@ -5,7 +5,7 @@
   <version>1.0.0</version>
   <description>dynamic_reconfigure package is a rviz plugin designed to change the parameters on the fly.</description>
   <maintainer email="shahjesal1510@gmail.com">jesxshah</maintainer>
-  <license>Apache License, Version 2.0</license>
+  <license>Apache-2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
