@@ -25,6 +25,11 @@ This package consists of several key components:
 | `ServiceWrapper`    | Interacts with ROS2 services to request and modify parameters dynamically, handling communication between the GUI and ROS2 nodes. |
 | `WatchdogTimer`     | Monitors system execution and ensures that parameter updates and requests do not hang indefinitely. |
 
+## Short cuts
+Use `Alt+S` on the focused (clicked/active) dropdown menu to search for nodes or parameters.
+
+`Note` The search box will turn off atomatically when the widget loses focus.
+
 ## Installation & Usage
 ### Prerequisites
 - ROS2 (Humble or newer recommended)
