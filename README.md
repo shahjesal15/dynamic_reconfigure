@@ -43,4 +43,4 @@ Launch RViz2 and add the `RvizDynamicReconfigure` panel from the available plugi
 - **Jesal Shah** - [shahjesal1510@gmail.com](mailto:shahjesal1510@gmail.com)
 
 ## License
-This project is licensed under the [MIT License](LICENSE).
+This project is licensed under the [Apache-2.0](LICENSE).
